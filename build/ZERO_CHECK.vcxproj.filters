@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\Electro\ElectroSim\build\CMakeFiles\309871194232770dffad72c2747d5d4b\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{D1EB8A03-A150-3543-AD9F-9604B88982A7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
