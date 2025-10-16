@@ -26,7 +26,7 @@ public:
         float restitution = 1.0f;
 
         // Safety clamp for acceleration magnitude (m/s^2)
-        float maxAccel = 1.0e4f;
+        float maxAccel = 1.0e2f;
     };
 
     explicit Simulator(const Params& p);

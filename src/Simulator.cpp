@@ -25,7 +25,7 @@ void Simulator::computeForcesNaive(std::vector<sf::Vector2f>& acc) const {
 
     for (size_t i=0; i<n; ++i){
         for(size_t j=i+1; j<n; ++j){
-            const auto rij = particles_[j].pos - particles_[i].pos; // meters
+            const auto rij = particles_[i].pos - particles_[j].pos; // meters
             float r2 = rij.x*rij.x + rij.y*rij.y + P.softening2;    // m^2 + ε^2
             float invR  = 1.0f / std::sqrt(r2);
             float invR3 = invR * invR * invR;
