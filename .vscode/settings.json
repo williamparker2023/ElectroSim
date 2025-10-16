@@ -1,0 +1,19 @@
+{
+  "cmake.configureOnOpen": false,
+  "cmake.useCMakePresets": "never",
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.generator": "Visual Studio 17 2022",
+
+  // Keep ONLY ONE way to specify 64-bit. We'll use "platform".
+  "cmake.platform": "x64",
+
+  // (Optional) Put your SFML_DIR here so you don't hardcode it in CMakeLists.txt
+  "cmake.configureSettings": {
+    "SFML_DIR": "D:/SFML-2.6.2-windows-vc17-64-bit/SFML-2.6.2/lib/cmake/SFML"
+  },
+
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json"
+
+
+}

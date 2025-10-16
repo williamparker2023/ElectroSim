@@ -1,0 +1,10 @@
+^D:\ELECTRO\ELECTROSIM\BUILD\CMAKEFILES\309871194232770DFFAD72C2747D5D4B\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SD:/Electro/ElectroSim -BD:/Electro/ElectroSim/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Electro/ElectroSim/build/ElectroSim.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
