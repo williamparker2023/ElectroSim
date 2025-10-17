@@ -1,7 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include "Simulator.hpp"
 #include "Particle.hpp"
-
+//add magnetic field
 int main() {
     // -------------------------------
     // Window + render scale
@@ -27,15 +27,15 @@ int main() {
     Simulator sim(prm);
     sim.setElectrostaticsEnabled(true);
 
-    sim.addParticle({ {W*0.50f/PPM, H*0.64f/PPM}, { 0.0f,  0.0f }, +1e-6f, 1e-3f, 0.1f, sf::Color::Red   }); // +1 µC, 1 g, 10 cm
-    sim.addParticle({ {W*0.40f/PPM, H*0.50f/PPM}, { 0.0f,  0.0f }, +1e-6f, 1e-3f, 0.1f, sf::Color::Red   }); // +1 µC, 1 g, 10 cm
-    sim.addParticle({ {W*0.60f/PPM, H*0.50f/PPM}, { 0.0f,  0.0f }, -1e-6f, 1e-3f, 0.1f, sf::Color::Blue  }); // -1 µC, 1 g, 10 cm
+    sim.addParticle({ {W*0.50f/PPM, H*0.64f/PPM}, { 0.0f,  0.0f }, +1e-6f, 1e-3f, 0.02f, sf::Color::Red   }); // +1 µC, 1 g, 10 cm
+    sim.addParticle({ {W*0.40f/PPM, H*0.50f/PPM}, { 0.0f,  0.0f }, +1e-6f, 1e-3f, 0.02f, sf::Color::Red   }); // +1 µC, 1 g, 10 cm
+    sim.addParticle({ {W*0.60f/PPM, H*0.50f/PPM}, { 0.0f,  0.0f }, -1e-6f, 1e-3f, 0.02f, sf::Color::Blue  }); // -1 µC, 1 g, 10 cm
 
     bool paused = false;
 
     float qMag   = 1e-6f;   // Coulombs (1 µC)
     float mass   = 1e-3f;   // kg (1 g)
-    float radius = 0.1f;   // m (1 cm)
+    float radius = 0.02f;   // m (1 cm)
 
     sf::Clock clock;
     float accTime = 0.0f;
