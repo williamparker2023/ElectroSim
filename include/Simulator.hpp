@@ -48,6 +48,8 @@ public:
     // Toggle electrostatics (default ON for you)
     void setElectrostaticsEnabled(bool on) { electroOn_ = on; }
     bool electrostaticsEnabled() const     { return electroOn_; }
+    void setBoundsEnabled(bool on) { boundsOn_ = on; }
+    bool boundsEnabled() const     { return boundsOn_; }
 
 private:
     Params P;
@@ -58,4 +60,7 @@ private:
     void computeForcesNaive(std::vector<sf::Vector2f>& acc) const; // O(N^2)
     void integrateSymplecticEuler(float dt, std::vector<sf::Vector2f>& acc);
     void applyBounds(); // bouncy walls only
+
+
+    bool boundsOn_ = false; // default OFF
 };

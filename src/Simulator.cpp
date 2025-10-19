@@ -31,7 +31,7 @@ void Simulator::computeForcesNaive(std::vector<sf::Vector2f>& acc) const {
             float invR3 = invR * invR * invR;
             
             // Coulomb force magnitude scaled into vector form (N/m * m = N)
-            const float s = P.k * (particles_[i].charge * particles_[j].charge) * invR3;\
+            const float s = P.k * (particles_[i].charge * particles_[j].charge) * invR3;
             sf::Vector2f f = { s * rij.x, s * rij.y }; // Newtons
 
             // Accelerations (m/s^2)
@@ -80,5 +80,5 @@ void Simulator::step(float dt) {
     std::vector<sf::Vector2f> acc(particles_.size());
     computeForcesNaive(acc);
     integrateSymplecticEuler(dt, acc);
-    applyBounds();
+    if (boundsOn_) applyBounds();
 }

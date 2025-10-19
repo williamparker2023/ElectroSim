@@ -25,17 +25,15 @@ int main() {
 
 
     Simulator sim(prm);
+    sim.setBoundsEnabled(false);
     sim.setElectrostaticsEnabled(true);
 
-    sim.addParticle({ {W*0.50f/PPM, H*0.64f/PPM}, { 0.0f,  0.0f }, +1e-6f, 1e-3f, 0.02f, sf::Color::Red   }); // +1 µC, 1 g, 10 cm
-    sim.addParticle({ {W*0.40f/PPM, H*0.50f/PPM}, { 0.0f,  0.0f }, +1e-6f, 1e-3f, 0.02f, sf::Color::Red   }); // +1 µC, 1 g, 10 cm
-    sim.addParticle({ {W*0.60f/PPM, H*0.50f/PPM}, { 0.0f,  0.0f }, -1e-6f, 1e-3f, 0.02f, sf::Color::Blue  }); // -1 µC, 1 g, 10 cm
-
-    bool paused = false;
+    bool paused = true;
+    
 
     float qMag   = 1e-6f;   // Coulombs (1 µC)
     float mass   = 1e-3f;   // kg (1 g)
-    float radius = 0.02f;   // m (1 cm)
+    float radius = 0.01f;   // m (1 cm)
 
     sf::Clock clock;
     float accTime = 0.0f;
@@ -60,7 +58,7 @@ int main() {
             }
 
             // Click to spawn: Left = +q, Right = -q
-            if (e.type == sf::Event::MouseButtonPressed) {
+            if (e.type == sf::Event::MouseButtonPressed && paused) {
                 sf::Vector2f mousePx = sf::Vector2f(sf::Mouse::getPosition(window));
                 sf::Vector2f mouseM  = mousePx / PPM; // px -> meters
 
@@ -71,12 +69,30 @@ int main() {
             }
         }
 
+        
         // ---- update (fixed dt) ----
-        accTime += clock.restart().asSeconds();
-        while (accTime >= dt && !paused) {
-            sim.step(dt);
-            accTime -= dt;
+        // ---- update (fixed dt) ----
+        float frame = clock.restart().asSeconds();
+
+        if (paused) {
+            // Do NOT accumulate time while paused
+            accTime = 0.0f;
+        } else {
+            // Accumulate, but cap how much we try to catch up this frame
+            accTime += std::min(frame, 0.25f); // don't accumulate more than 0.25s per frame
+
+            // Also cap the number of physics steps per frame to avoid spiral-of-death
+            int steps = 0, maxSteps = 240;     // at most ~0.5s of sim @ 1/480 dt, adjust as you like
+            while (accTime >= dt && steps < maxSteps) {
+                sim.step(dt);
+                accTime -= dt;
+                ++steps;
+            }
+
+            // (Optional) if we hit the cap, drop leftover time
+            if (steps == maxSteps) accTime = 0.0f;
         }
+
 
         // ---- draw ----
         window.clear(sf::Color::Black);
