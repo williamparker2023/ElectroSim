@@ -154,12 +154,71 @@ int main() {
                 if (qMag > 5e-6f) qMag = 5e-6f;
             }
 
+            auto contains = [](const sf::FloatRect& r, sf::Vector2f p){ return r.contains(p); };
+            //buttons
+            if (e.type == sf::Event::MouseButtonPressed) {
+                sf::Vector2f mousePx = (sf::Vector2f)sf::Mouse::getPosition(window);
+
+                // Row 0: Charge (C)
+                {
+                    auto R = rowRect(0);
+                    if (contains(R, mousePx)) {
+                        if (contains(minusRect(R), mousePx)) { 
+                            uiCharge -= 2e-7f;                          // step down 0.2 µC
+                            if (uiCharge < 1e-8f) uiCharge = 1e-8f;     // clamp
+                            continue; // consume click; don't place a particle
+                        }
+                        if (contains(plusRect(R), mousePx))  { 
+                            uiCharge += 2e-7f;                          // step up 0.2 µC
+                            if (uiCharge > 5e-6f) uiCharge = 5e-6f;     // clamp
+                            continue;
+                        }
+                    }
+                }
+
+                // Row 1: Mass (kg)
+                {
+                    auto R = rowRect(1);
+                    if (contains(R, mousePx)) {
+                        if (contains(minusRect(R), mousePx)) { 
+                            uiMass -= 5e-4f;                            // step 0.0005 kg (0.5 g)
+                            if (uiMass < 1e-4f) uiMass = 1e-4f;         // min 0.1 g
+                            continue;
+                        }
+                        if (contains(plusRect(R), mousePx))  { 
+                            uiMass += 5e-4f;
+                            if (uiMass > 5e-2f) uiMass = 5e-2f;         // max 50 g
+                            continue;
+                        }
+                    }
+                }
+
+                // Row 2: Bz (Tesla) — UI only for now
+                {
+                    auto R = rowRect(2);
+                    if (contains(R, mousePx)) {
+                        if (contains(minusRect(R), mousePx)) { 
+                            uiBz -= 0.05f;                              // step 0.05 T
+                            if (uiBz < -2.0f) uiBz = -2.0f;             // clamp [-2, +2] T
+                            continue;
+                        }
+                        if (contains(plusRect(R), mousePx))  { 
+                            uiBz += 0.05f;
+                            if (uiBz >  2.0f) uiBz =  2.0f;
+                            continue;
+                        }
+                    }
+                }
+
+                // If we didn't click the UI, fall through to other click handling...
+            }
+
             // Click to spawn: Left = +q, Right = -q
             if (e.type == sf::Event::MouseButtonPressed && paused) {
                 sf::Vector2f mousePx = sf::Vector2f(sf::Mouse::getPosition(window));
                 sf::Vector2f mouseM  = mousePx / ppm; // px -> meters
 
-                float q = (e.mouseButton.button == sf::Mouse::Left) ? +qMag : -qMag;
+                float q = (e.mouseButton.button == sf::Mouse::Left) ? +uiCharge : -uiCharge;
                 sf::Color col = (q > 0) ? sf::Color::Red : sf::Color::Blue;
 
                 sim.addParticle({ mouseM, {0.0f, 0.0f}, q, mass, radius, col });
