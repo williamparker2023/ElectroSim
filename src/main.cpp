@@ -1,6 +1,9 @@
 #include <SFML/Graphics.hpp>
 #include "Simulator.hpp"
 #include "Particle.hpp"
+#include <iostream>
+enum class Mode { Custom, ElectronGun };
+
 //add magnetic field
 int main() {
     // -------------------------------
@@ -11,6 +14,11 @@ int main() {
 
     sf::RenderWindow window(sf::VideoMode(W, H), "ElectroSim (SI units)");
     window.setFramerateLimit(120);
+
+    sf::Font uiFont;
+    if(!uiFont.loadFromFile("assets/fonts/RobotoRegular-3m4L.ttf")){
+        std::cout << "Font Not Found";
+    }
 
     // -------------------------------
     // Simulator params in SI units
@@ -31,10 +39,32 @@ int main() {
     bool paused = true;
     
 
-    float qMag   = 1e-6f;   // Coulombs (1 µC)
-    float mass   = 1e-3f;   // kg (1 g)
-    float radius = 0.01f;   // m (1 cm)
+    float qMag   = 1e-6f;   // Coulombs
+    float mass   = 1e-3f;   // kg
+    float radius = 0.01f;   // m
 
+    // --- UI state for inputs (SI units) ---
+    float uiCharge = 8e-7f;   // Coulombs
+    float uiMass   = 2e-3f;   // kg
+    float uiBz     = 0.0f;    // Tesla (out-of-screen), placeholder (not applied yet)
+
+    // Layout for three rows (top-right panel)
+    const sf::Vector2f panelPos{ W - 220.f, 12.f };
+    const sf::Vector2f rowSize{ 208.f, 32.f };
+    const float rowGap = 8.f;
+
+    auto rowRect = [&](int i){ return sf::FloatRect(panelPos.x, panelPos.y + i*(rowSize.y+rowGap), rowSize.x, rowSize.y); };
+
+    auto minusRect = [&](const sf::FloatRect& r){ return sf::FloatRect(r.left, r.top, 32.f, r.height); };
+    auto plusRect  = [&](const sf::FloatRect& r){ return sf::FloatRect(r.left + r.width - 32.f, r.top, 32.f, r.height); };
+    auto valueRect = [&](const sf::FloatRect& r){ return sf::FloatRect(r.left + 36.f, r.top, r.width - 72.f, r.height); };
+
+    auto makeRect = [](const sf::FloatRect& r, sf::Color fill){
+        sf::RectangleShape s; s.setPosition({r.left, r.top}); s.setSize({r.width, r.height});
+        s.setFillColor(fill); s.setOutlineThickness(1.f); s.setOutlineColor(sf::Color(120,120,120));
+        return s;
+    };
+    
     sf::Clock clock;
     float accTime = 0.0f;
     const float dt = 1.0f / 240.0f; // seconds
@@ -69,8 +99,7 @@ int main() {
             }
         }
 
-        
-        // ---- update (fixed dt) ----
+
         // ---- update (fixed dt) ----
         float frame = clock.restart().asSeconds();
 
@@ -115,6 +144,14 @@ int main() {
         cursor.setPosition(sf::Vector2f(sf::Mouse::getPosition(window)));
         cursor.setFillColor(sf::Color(200,200,200));
         window.draw(cursor);
+
+        if (uiFont.getInfo().family != "") { // loaded ok
+            sf::Text lbl("UI OK", uiFont, 16);
+            lbl.setFillColor(sf::Color(200,200,200));
+            lbl.setPosition(12.f, 12.f);
+            window.draw(lbl);
+        }
+
 
         window.display();
     }

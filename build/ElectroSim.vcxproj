@@ -120,8 +120,10 @@
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <PostBuildEvent>
-      <Message>Copying SFML DLLs to output folder</Message>
+      <Message>Copying assets and SFML DLLs to output folder</Message>
       <Command>setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E copy_directory D:/Electro/ElectroSim/assets D:/Electro/ElectroSim/build/bin/Debug/assets
+if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E copy_directory D:/SFML-2.6.2-windows-vc17-64-bit/SFML-2.6.2/bin D:/Electro/ElectroSim/build/bin/Debug
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
@@ -182,8 +184,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <PostBuildEvent>
-      <Message>Copying SFML DLLs to output folder</Message>
+      <Message>Copying assets and SFML DLLs to output folder</Message>
       <Command>setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E copy_directory D:/Electro/ElectroSim/assets D:/Electro/ElectroSim/build/bin/Release/assets
+if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E copy_directory D:/SFML-2.6.2-windows-vc17-64-bit/SFML-2.6.2/bin D:/Electro/ElectroSim/build/bin/Release
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
@@ -244,8 +248,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <PostBuildEvent>
-      <Message>Copying SFML DLLs to output folder</Message>
+      <Message>Copying assets and SFML DLLs to output folder</Message>
       <Command>setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E copy_directory D:/Electro/ElectroSim/assets D:/Electro/ElectroSim/build/bin/MinSizeRel/assets
+if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E copy_directory D:/SFML-2.6.2-windows-vc17-64-bit/SFML-2.6.2/bin D:/Electro/ElectroSim/build/bin/MinSizeRel
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
@@ -305,8 +311,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <PostBuildEvent>
-      <Message>Copying SFML DLLs to output folder</Message>
+      <Message>Copying assets and SFML DLLs to output folder</Message>
       <Command>setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E copy_directory D:/Electro/ElectroSim/assets D:/Electro/ElectroSim/build/bin/RelWithDebInfo/assets
+if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E copy_directory D:/SFML-2.6.2-windows-vc17-64-bit/SFML-2.6.2/bin D:/Electro/ElectroSim/build/bin/RelWithDebInfo
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd

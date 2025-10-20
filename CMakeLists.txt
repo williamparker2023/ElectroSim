@@ -57,11 +57,19 @@ get_target_property(SFML_INC sfml-graphics INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(ElectroSim PRIVATE ${SFML_INC})
 
 
-# Auto-copy SFML runtime DLLs next to the executable after build (Windows only)
+# Auto-copy SFML runtime DLLs and assets next to the executable (Windows only)
 if(WIN32)
   add_custom_command(TARGET ElectroSim POST_BUILD
+    # 1) Copy assets/ -> <exe dir>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/assets"
+            "$<TARGET_FILE_DIR:ElectroSim>/assets"
+
+    # 2) Copy SFML DLLs -> <exe dir>
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             "D:/SFML-2.6.2-windows-vc17-64-bit/SFML-2.6.2/bin"
             "$<TARGET_FILE_DIR:ElectroSim>"
-    COMMENT "Copying SFML DLLs to output folder")
+
+    COMMENT "Copying assets and SFML DLLs to output folder")
 endif()
+
