@@ -9,11 +9,16 @@ int main() {
     // -------------------------------
     // Window + render scale
     // -------------------------------
-    const unsigned W = 800, H = 600;       // pixels
-    constexpr float PPM = 100.0f;          // pixels per meter (100 px = 1 m)
+    unsigned W = 800, H = 600;       // pixels
+    float ppm = 100.0f;          // pixels per meter (100 px = 1 m)
+
+    const float WORLD_W_M = W / ppm;
+    const float WORLD_H_M = H / ppm;
 
     sf::RenderWindow window(sf::VideoMode(W, H), "ElectroSim (SI units)");
     window.setFramerateLimit(120);
+    sf::View view(sf::FloatRect(0.f, 0.f, (float)W, (float)H));
+    window.setView(view);
 
     sf::Font uiFont;
     if(!uiFont.loadFromFile("assets/fonts/RobotoRegular-3m4L.ttf")){
@@ -24,8 +29,8 @@ int main() {
     // Simulator params in SI units
     // -------------------------------
     Simulator::Params prm;
-    prm.boundsW     = W / PPM;             // meters
-    prm.boundsH     = H / PPM;             // meters
+    prm.boundsW     = W / ppm;             // meters
+    prm.boundsH     = H / ppm;             // meters
     prm.k           = 8.9875517923e9f;     // Coulomb constant (N·m^2/C^2)
     prm.softening2  = (0.05f * 0.05f);               // (0.01 m)^2
     prm.restitution = 0.9f;                // mirror walls
@@ -49,11 +54,14 @@ int main() {
     float uiBz     = 0.0f;    // Tesla (out-of-screen), placeholder (not applied yet)
 
     // Layout for three rows (top-right panel)
-    const sf::Vector2f panelPos{ W - 220.f, 12.f };
     const sf::Vector2f rowSize{ 208.f, 32.f };
     const float rowGap = 8.f;
 
-    auto rowRect = [&](int i){ return sf::FloatRect(panelPos.x, panelPos.y + i*(rowSize.y+rowGap), rowSize.x, rowSize.y); };
+    auto rowRect = [&](int i){ 
+        float x = static_cast<float>(W) - 220.f;
+        float y = 16.f + i * (rowSize.y + rowGap);
+        return sf::FloatRect(x, y, rowSize.x, rowSize.y); 
+    };
 
     auto minusRect = [&](const sf::FloatRect& r){ return sf::FloatRect(r.left, r.top, 32.f, r.height); };
     auto plusRect  = [&](const sf::FloatRect& r){ return sf::FloatRect(r.left + r.width - 32.f, r.top, 32.f, r.height); };
@@ -63,6 +71,42 @@ int main() {
         sf::RectangleShape s; s.setPosition({r.left, r.top}); s.setSize({r.width, r.height});
         s.setFillColor(fill); s.setOutlineThickness(1.f); s.setOutlineColor(sf::Color(120,120,120));
         return s;
+    };
+
+    auto drawRow = [&](int idx, const char* label, const std::string& valueText) {
+        auto R     = rowRect(idx);
+        auto minus = makeRect(minusRect(R), sf::Color(70,70,70));
+        auto plus  = makeRect(plusRect(R),  sf::Color(70,70,70));
+        auto valBx = makeRect(valueRect(R), sf::Color(35,35,35));
+
+        window.draw(minus);
+        window.draw(plus);
+        window.draw(valBx);
+
+        if (uiFont.getInfo().family != "") {
+            // label (above the row)
+            sf::Text tLabel(label, uiFont, 14);
+            tLabel.setFillColor(sf::Color(200,200,200));
+            tLabel.setPosition(R.left, R.top - 16.f);
+            window.draw(tLabel);
+
+            // glyphs on the +/- boxes
+            sf::Text tMinus("-", uiFont, 18);
+            tMinus.setFillColor(sf::Color::White);
+            tMinus.setPosition(minus.getPosition().x + 10.f, minus.getPosition().y + 4.f);
+            window.draw(tMinus);
+
+            sf::Text tPlus("+", uiFont, 18);
+            tPlus.setFillColor(sf::Color::White);
+            tPlus.setPosition(plus.getPosition().x + 9.f, plus.getPosition().y + 4.f);
+            window.draw(tPlus);
+
+            // value text
+            sf::Text tVal(valueText, uiFont, 16);
+            tVal.setFillColor(sf::Color(230,230,230));
+            tVal.setPosition(valBx.getPosition().x + 6.f, valBx.getPosition().y + 4.f);
+            window.draw(tVal);
+        }
     };
     
     sf::Clock clock;
@@ -74,6 +118,18 @@ int main() {
         sf::Event e;
         while (window.pollEvent(e)) {
             if (e.type == sf::Event::Closed) window.close();
+
+            if (e.type == sf::Event::Resized) {
+                W = e.size.width;
+                H = e.size.height;
+                float ppmX = W / WORLD_W_M;
+                float ppmY = H / WORLD_H_M;
+                ppm = std::min(ppmX, ppmY);
+                view.setSize((float)W, (float)H);
+                view.setCenter(W / 2.f, H / 2.f);
+                window.setView(view);
+            }
+
 
             if (e.type == sf::Event::KeyPressed) {
                 if (e.key.code == sf::Keyboard::Space) paused = !paused;
@@ -90,7 +146,7 @@ int main() {
             // Click to spawn: Left = +q, Right = -q
             if (e.type == sf::Event::MouseButtonPressed && paused) {
                 sf::Vector2f mousePx = sf::Vector2f(sf::Mouse::getPosition(window));
-                sf::Vector2f mouseM  = mousePx / PPM; // px -> meters
+                sf::Vector2f mouseM  = mousePx / ppm; // px -> meters
 
                 float q = (e.mouseButton.button == sf::Mouse::Left) ? +qMag : -qMag;
                 sf::Color col = (q > 0) ? sf::Color::Red : sf::Color::Blue;
@@ -128,8 +184,8 @@ int main() {
 
         for (const auto& p : sim.particles()) {
             // meters -> pixels
-            sf::Vector2f posPx = p.pos * PPM;
-            float rPx = std::max(2.0f, p.radius * PPM); // ensure visible
+            sf::Vector2f posPx = p.pos * ppm;
+            float rPx = std::max(2.0f, p.radius * ppm); // ensure visible
 
             sf::CircleShape shape(rPx);
             shape.setOrigin(rPx, rPx);
@@ -150,7 +206,19 @@ int main() {
             lbl.setFillColor(sf::Color(200,200,200));
             lbl.setPosition(12.f, 12.f);
             window.draw(lbl);
+
+            auto fmt = [](float v) {
+                char buf[64];
+                std::snprintf(buf, sizeof(buf), "%.3g", v);
+                return std::string(buf);
+            };
+
+            drawRow(0, "Charge (C)", fmt(uiCharge));
+            drawRow(1, "Mass (kg)",  fmt(uiMass));
+            drawRow(2, "Bz (T)",     fmt(uiBz));
         }
+
+        
 
 
         window.display();
