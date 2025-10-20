@@ -38,7 +38,7 @@ int main() {
 
 
     Simulator sim(prm);
-    sim.setBoundsEnabled(false);
+    sim.setBoundsEnabled(true);
     sim.setElectrostaticsEnabled(true);
 
     bool paused = true;
@@ -46,7 +46,7 @@ int main() {
 
     float qMag   = 1e-6f;   // Coulombs
     float mass   = 1e-3f;   // kg
-    float radius = 0.01f;   // m
+    float radius = 0.1f;   // m
 
     // --- UI state for inputs (SI units) ---
     float uiCharge = 8e-7f;   // Coulombs
@@ -128,6 +128,17 @@ int main() {
                 view.setSize((float)W, (float)H);
                 view.setCenter(W / 2.f, H / 2.f);
                 window.setView(view);
+                sim.params().boundsW = W / ppm;
+                sim.params().boundsH = H / ppm;
+                if (paused && sim.boundsEnabled()) {
+                    for (auto& p : sim.particles()) {
+                        if (p.pos.x < p.radius)                    { p.pos.x = p.radius; }
+                        if (p.pos.x > sim.params().boundsW - p.radius) { p.pos.x = sim.params().boundsW - p.radius; }
+                        if (p.pos.y < p.radius)                    { p.pos.y = p.radius; }
+                        if (p.pos.y > sim.params().boundsH - p.radius) { p.pos.y = sim.params().boundsH - p.radius; }
+                    }
+                }
+
             }
 
 
