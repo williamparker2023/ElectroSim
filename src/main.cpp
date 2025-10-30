@@ -38,7 +38,7 @@ int main() {
 
 
     Simulator sim(prm);
-    sim.setBoundsEnabled(true);
+    sim.setBoundsEnabled(false);
     sim.setElectrostaticsEnabled(true);
 
     bool paused = true;
