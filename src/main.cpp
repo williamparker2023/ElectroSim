@@ -17,6 +17,7 @@ int main() {
 
     sf::RenderWindow window(sf::VideoMode(W, H), "ElectroSim (SI units)");
     window.setFramerateLimit(120);
+    window.setTitle("ElectroSim");
     sf::View view(sf::FloatRect(0.f, 0.f, (float)W, (float)H));
     window.setView(view);
 
@@ -52,6 +53,9 @@ int main() {
     float uiCharge = 8e-7f;   // Coulombs
     float uiMass   = 2e-3f;   // kg
     float uiBz     = 0.0f;    // Tesla (out-of-screen), placeholder (not applied yet)
+    float uiEx = 0.0f;   // V/m  (N/C)
+    float uiEy = 0.0f;   // V/m
+
 
     // Layout for three rows (top-right panel)
     const sf::Vector2f rowSize{ 208.f, 32.f };
@@ -73,41 +77,86 @@ int main() {
         return s;
     };
 
-    auto drawRow = [&](int idx, const char* label, const std::string& valueText) {
-        auto R     = rowRect(idx);
-        auto minus = makeRect(minusRect(R), sf::Color(70,70,70));
-        auto plus  = makeRect(plusRect(R),  sf::Color(70,70,70));
-        auto valBx = makeRect(valueRect(R), sf::Color(35,35,35));
+    auto resetRect = [&](){
+        return sf::FloatRect(12.f, 52.f, 80.f, 28.f); // x, y, w, h
+    };
 
-        window.draw(minus);
-        window.draw(plus);
-        window.draw(valBx);
+    auto drawButton = [&](const sf::FloatRect& r, const char* text, bool enabled){
+        sf::RectangleShape box({r.width, r.height});
+        box.setPosition({r.left, r.top});
+        box.setFillColor(enabled ? sf::Color(60,60,60) : sf::Color(30,30,30));
+        box.setOutlineThickness(1.f);
+        box.setOutlineColor(sf::Color(120,120,120));
+        window.draw(box);
 
         if (uiFont.getInfo().family != "") {
-            // label (above the row)
+            sf::Text t(text, uiFont, 14);
+            t.setFillColor(enabled ? sf::Color::White : sf::Color(160,160,160));
+            auto b = t.getLocalBounds();
+            // center text in box
+            t.setPosition(r.left + (r.width  - b.width)/2.f  - b.left,
+                        r.top  + (r.height - b.height)/2.f - b.top - 2.f);
+            window.draw(t);
+        }
+    };
+
+    auto drawRow = [&](int idx, const char* label, const std::string& valueText) {
+        auto R = rowRect(idx);
+        const float buttonW = 32.f;
+        const float spacing = 4.f;
+        const int numButtons = 6;
+        const float totalButtonsW = numButtons * buttonW + (numButtons - 1) * spacing;
+        const float totalW = totalButtonsW + 100.f; // 100px for value box
+        const float startX = R.left + (R.width - totalW) / 2.f;
+
+        // Draw label
+        if (uiFont.getInfo().family != "") {
             sf::Text tLabel(label, uiFont, 14);
             tLabel.setFillColor(sf::Color(200,200,200));
             tLabel.setPosition(R.left, R.top - 16.f);
             window.draw(tLabel);
+        }
 
-            // glyphs on the +/- boxes
-            sf::Text tMinus("-", uiFont, 18);
-            tMinus.setFillColor(sf::Color::White);
-            tMinus.setPosition(minus.getPosition().x + 10.f, minus.getPosition().y + 4.f);
-            window.draw(tMinus);
+        // Buttons text and multiplier mapping
+        const char* btnLabels[numButtons] = {"-100", "-10", "-1", "+1", "+10", "+100"};
+        for (int i = 0; i < numButtons; ++i) {
+            sf::FloatRect bRect(startX + i * (buttonW + spacing), R.top, buttonW, R.height);
+            sf::RectangleShape box({bRect.width, bRect.height});
+            box.setPosition({bRect.left, bRect.top});
+            box.setFillColor(sf::Color(70,70,70));
+            box.setOutlineThickness(1.f);
+            box.setOutlineColor(sf::Color(120,120,120));
+            window.draw(box);
 
-            sf::Text tPlus("+", uiFont, 18);
-            tPlus.setFillColor(sf::Color::White);
-            tPlus.setPosition(plus.getPosition().x + 9.f, plus.getPosition().y + 4.f);
-            window.draw(tPlus);
+            if (uiFont.getInfo().family != "") {
+                sf::Text t(btnLabels[i], uiFont, 13);
+                t.setFillColor(sf::Color::White);
+                auto bounds = t.getLocalBounds();
+                t.setPosition(
+                    bRect.left + (bRect.width - bounds.width)/2.f - bounds.left,
+                    bRect.top + (bRect.height - bounds.height)/2.f - bounds.top - 2.f
+                );
+                window.draw(t);
+            }
+        }
 
-            // value text
+        // Value display box (on the right)
+        sf::FloatRect valRect(startX + totalButtonsW + spacing, R.top, 100.f, R.height);
+        sf::RectangleShape valBx({valRect.width, valRect.height});
+        valBx.setPosition({valRect.left, valRect.top});
+        valBx.setFillColor(sf::Color(35,35,35));
+        valBx.setOutlineThickness(1.f);
+        valBx.setOutlineColor(sf::Color(120,120,120));
+        window.draw(valBx);
+
+        if (uiFont.getInfo().family != "") {
             sf::Text tVal(valueText, uiFont, 16);
             tVal.setFillColor(sf::Color(230,230,230));
-            tVal.setPosition(valBx.getPosition().x + 6.f, valBx.getPosition().y + 4.f);
+            tVal.setPosition(valRect.left + 6.f, valRect.top + 4.f);
             window.draw(tVal);
         }
     };
+
     
     sf::Clock clock;
     float accTime = 0.0f;
@@ -158,20 +207,34 @@ int main() {
             //buttons
             if (e.type == sf::Event::MouseButtonPressed) {
                 sf::Vector2f mousePx = (sf::Vector2f)sf::Mouse::getPosition(window);
+                bool uiConsumed = false;
+
+                // Reset button: only active when paused
+                if (resetRect().contains(mousePx)) {
+                    if (paused) sim.clear();
+                    uiConsumed = true;
+                }
+
+                // Helper lambdas used below
+                const float buttonW = 32.f, spacing = 4.f;
+                const int   numButtons = 6;
+                auto rowButtons = [&](const sf::FloatRect& R, int i)->sf::FloatRect {
+                    const float totalButtonsW = numButtons * buttonW + (numButtons - 1) * spacing;
+                    const float totalW = totalButtonsW + 100.f;
+                    const float startX = R.left + (R.width - totalW) / 2.f;
+                    return { startX + i * (buttonW + spacing), R.top, buttonW, R.height };
+                };
+                const float mult[numButtons] = {-100.f,-10.f,-1.f,+1.f,+10.f,+100.f};
 
                 // Row 0: Charge (C)
                 {
                     auto R = rowRect(0);
-                    if (contains(R, mousePx)) {
-                        if (contains(minusRect(R), mousePx)) { 
-                            uiCharge -= 2e-7f;                          // step down 0.2 µC
-                            if (uiCharge < 1e-8f) uiCharge = 1e-8f;     // clamp
-                            continue; // consume click; don't place a particle
-                        }
-                        if (contains(plusRect(R), mousePx))  { 
-                            uiCharge += 2e-7f;                          // step up 0.2 µC
-                            if (uiCharge > 5e-6f) uiCharge = 5e-6f;     // clamp
-                            continue;
+                    for (int i = 0; i < numButtons; ++i) {
+                        if (rowButtons(R, i).contains(mousePx)) {
+                            uiCharge += 2e-7f * mult[i];                 // base step × multiplier
+                            uiCharge = std::clamp(uiCharge, 1e-8f, 5e-6f);
+                            uiConsumed = true;
+                            break;
                         }
                     }
                 }
@@ -179,39 +242,63 @@ int main() {
                 // Row 1: Mass (kg)
                 {
                     auto R = rowRect(1);
-                    if (contains(R, mousePx)) {
-                        if (contains(minusRect(R), mousePx)) { 
-                            uiMass -= 5e-4f;                            // step 0.0005 kg (0.5 g)
-                            if (uiMass < 1e-4f) uiMass = 1e-4f;         // min 0.1 g
-                            continue;
-                        }
-                        if (contains(plusRect(R), mousePx))  { 
-                            uiMass += 5e-4f;
-                            if (uiMass > 5e-2f) uiMass = 5e-2f;         // max 50 g
-                            continue;
+                    const float baseStep = 5e-4f, minMass = 1e-4f, maxMass = 5e-2f;
+                    for (int i = 0; i < numButtons; ++i) {
+                        if (rowButtons(R, i).contains(mousePx)) {
+                            uiMass += baseStep * mult[i];
+                            uiMass = std::clamp(uiMass, minMass, maxMass);
+                            uiConsumed = true;
+                            break;
                         }
                     }
                 }
 
-                // Row 2: Bz (Tesla) — UI only for now
+                // Row 2: Bz (T)
                 {
                     auto R = rowRect(2);
-                    if (contains(R, mousePx)) {
-                        if (contains(minusRect(R), mousePx)) { 
-                            uiBz -= 0.05f;                              // step 0.05 T
-                            if (uiBz < -2.0f) uiBz = -2.0f;             // clamp [-2, +2] T
-                            continue;
-                        }
-                        if (contains(plusRect(R), mousePx))  { 
-                            uiBz += 0.05f;
-                            if (uiBz >  2.0f) uiBz =  2.0f;
-                            continue;
+                    const float baseStep = 1.0f, minBz = -10000.f, maxBz = +10000.f;
+                    for (int i = 0; i < numButtons; ++i) {
+                        if (rowButtons(R, i).contains(mousePx)) {
+                            uiBz += baseStep * mult[i];
+                            uiBz = std::clamp(uiBz, minBz, maxBz);
+                            uiConsumed = true;
+                            break;
                         }
                     }
                 }
 
-                // If we didn't click the UI, fall through to other click handling...
+                // Row 3: Ex (V/m)
+                {
+                    auto R = rowRect(3);
+                    const float baseStep = 10.f, minE = -1e4f, maxE = +1e4f;
+                    for (int i = 0; i < numButtons; ++i) {
+                        if (rowButtons(R, i).contains(mousePx)) {
+                            uiEx += baseStep * mult[i];
+                            uiEx = std::clamp(uiEx, minE, maxE);
+                            uiConsumed = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Row 4: Ey (V/m)
+                {
+                    auto R = rowRect(4);
+                    const float baseStep = 10.f, minE = -1e4f, maxE = +1e4f;
+                    for (int i = 0; i < numButtons; ++i) {
+                        if (rowButtons(R, i).contains(mousePx)) {
+                            uiEy += baseStep * mult[i];
+                            uiEy = std::clamp(uiEy, minE, maxE);
+                            uiConsumed = true;
+                            break;
+                        }
+                    }
+                }
+
+                // If any UI element handled the click, don't spawn a particle
+                if (uiConsumed) continue;
             }
+
 
             // Click to spawn: Left = +q, Right = -q
             if (e.type == sf::Event::MouseButtonPressed && paused) {
@@ -235,6 +322,9 @@ int main() {
         } else {
             // Accumulate, but cap how much we try to catch up this frame
             accTime += std::min(frame, 0.25f); // don't accumulate more than 0.25s per frame
+
+            sim.params().externalE = { uiEx, uiEy };
+            sim.params().externalBz = uiBz; 
 
             // Also cap the number of physics steps per frame to avoid spiral-of-death
             int steps = 0, maxSteps = 240;     // at most ~0.5s of sim @ 1/480 dt, adjust as you like
@@ -272,10 +362,8 @@ int main() {
         window.draw(cursor);
 
         if (uiFont.getInfo().family != "") { // loaded ok
-            sf::Text lbl("UI OK", uiFont, 16);
-            lbl.setFillColor(sf::Color(200,200,200));
-            lbl.setPosition(12.f, 12.f);
-            window.draw(lbl);
+            // Draw the RESET button (replaces "UI OK" text)
+            drawButton(resetRect(), "Reset", paused);
 
             auto fmt = [](float v) {
                 char buf[64];
@@ -283,13 +371,13 @@ int main() {
                 return std::string(buf);
             };
 
+            // Rows
             drawRow(0, "Charge (C)", fmt(uiCharge));
             drawRow(1, "Mass (kg)",  fmt(uiMass));
             drawRow(2, "Bz (T)",     fmt(uiBz));
+            drawRow(3, "Ex (V/m)",   fmt(uiEx));
+            drawRow(4, "Ey (V/m)",   fmt(uiEy));
         }
-
-        
-
 
         window.display();
     }

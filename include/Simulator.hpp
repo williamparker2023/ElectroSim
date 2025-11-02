@@ -27,6 +27,9 @@ public:
 
         // Safety clamp for acceleration magnitude (m/s^2)
         float maxAccel = 1.0e2f;
+
+        sf::Vector2f externalE{0.f, 0.f}; // NEW: uniform external E-field (V/m = N/C)
+        float externalBz = 0.f; 
     };
 
     explicit Simulator(const Params& p);
@@ -50,6 +53,12 @@ public:
     bool electrostaticsEnabled() const     { return electroOn_; }
     void setBoundsEnabled(bool on) { boundsOn_ = on; }
     bool boundsEnabled() const     { return boundsOn_; }
+
+    void setExternalE(const sf::Vector2f& E) { P.externalE = E; }
+    sf::Vector2f externalE() const { return P.externalE; }
+
+    void  setExternalBz(float bz) { P.externalBz = bz; } 
+    float externalBz() const      { return P.externalBz; }
 
 private:
     Params P;

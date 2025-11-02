@@ -23,6 +23,31 @@ void Simulator::computeForcesNaive(std::vector<sf::Vector2f>& acc) const {
 
     if (!electroOn_ || n==0) return;
 
+    // External uniform E-field: a_i += (q_i/m_i) * E
+    if (electroOn_) {
+        const sf::Vector2f E = P.externalE;
+        if (E.x != 0.f || E.y != 0.f) {
+            for (size_t i = 0; i < n; ++i) {
+                const float qm = particles_[i].charge / particles_[i].mass; // q/m
+                acc[i].x += qm * E.x;
+                acc[i].y += qm * E.y;
+            }
+        }
+    }
+
+    if (electroOn_) {
+        const float Bz = P.externalBz;
+        if (Bz != 0.f) {
+            for (size_t i = 0; i < n; ++i) {
+                const float qm = particles_[i].charge / particles_[i].mass; // q/m
+                const float vx = particles_[i].vel.x;
+                const float vy = particles_[i].vel.y;
+                acc[i].x += qm * (  vy * Bz);
+                acc[i].y += qm * ( -vx * Bz);
+            }
+        }
+    }
+
     for (size_t i=0; i<n; ++i){
         for(size_t j=i+1; j<n; ++j){
             const auto rij = particles_[i].pos - particles_[j].pos; // meters
