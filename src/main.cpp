@@ -3,6 +3,7 @@
 #include "Particle.hpp"
 #include <iostream>
 #include <cmath>
+#include <vector>
 enum class Mode { Custom, ElectronGun };
 
 //add magnetic field
@@ -48,7 +49,7 @@ int main() {
 
     float qMag   = 1e-6f;   // Coulombs
     float mass   = 1e-3f;   // kg
-    float radius = 0.01f;   // m
+    float radius = 0.02f;   // m
 
     // --- UI state for inputs (SI units) ---
     float uiCharge = 8e-7f;   // Coulombs
@@ -348,15 +349,15 @@ int main() {
         // ---- update (fixed dt) ----
         float frame = clock.restart().asSeconds();
 
+        sim.params().externalE = { uiEx, uiEy };
+        sim.params().externalBz = uiBz;
+
         if (paused) {
             // Do NOT accumulate time while paused
             accTime = 0.0f;
         } else {
             // Accumulate, but cap how much we try to catch up this frame
             accTime += std::min(frame, 0.25f); // don't accumulate more than 0.25s per frame
-
-            sim.params().externalE = { uiEx, uiEy };
-            sim.params().externalBz = uiBz; 
 
             // Also cap the number of physics steps per frame to avoid spiral-of-death
             int steps = 0, maxSteps = 240;     // at most ~0.5s of sim @ 1/480 dt, adjust as you like
@@ -388,12 +389,18 @@ int main() {
 
         // Draw E-field sample grid arrows (pixels)
         if (showEField) {
-            const float gridPx = 36.f;               // visual spacing in pixels (tune for density)
-            const float arrowVisualScale = 2e-6f;    // visual scale factor -> adjust to taste
+            const float gridPx = 36.f;               // spacing in pixels (fewer samples than before)
+            const float arrowVisualMax = gridPx * 0.6f;
+            const float arrowVisualMin = 2.f;
             const auto& params = sim.params();
             const float k = params.k;
             const float soft2 = params.softening2;
 
+            struct Sample { sf::Vector2f pPx; sf::Vector2f E; float Emag; };
+            std::vector<Sample> samples;
+            samples.reserve( (int)((W/gridPx) * (H/gridPx)) );
+
+            // Pass 1: sample E at grid points and record magnitudes
             for (float gx = gridPx * 0.5f; gx < (float)W; gx += gridPx) {
                 for (float gy = gridPx * 0.5f; gy < (float)H; gy += gridPx) {
                     sf::Vector2f pPx(gx, gy);
@@ -402,7 +409,7 @@ int main() {
                     // start with external uniform E-field
                     sf::Vector2f E = sim.params().externalE;
 
-                    // sum contributions from particles: E += k * q * r / |r|^3
+                    // sum contributions from particles
                     for (const auto& part : sim.particles()) {
                         sf::Vector2f r = pM - part.pos;
                         float r2 = r.x*r.x + r.y*r.y + soft2;
@@ -411,25 +418,52 @@ int main() {
                         E += (k * part.charge) * r * invr3;
                     }
 
-                    // convert E (V/m) to pixels for drawing
                     float Emag = std::sqrt(E.x*E.x + E.y*E.y);
-                    if (Emag < 1e-12f){
-                        // draw a small neutral dot so the grid is visible even with no field
-                        sf::CircleShape dot(2.f);
-                        dot.setOrigin(2.f, 2.f);
-                        dot.setPosition(pPx);
-                        dot.setFillColor(sf::Color(70,70,110));
-                        window.draw(dot);
-                        continue;
-                    }
-                    sf::Vector2f dir = E / Emag;
-
-                    float lenPx = std::clamp(Emag * ppm * arrowVisualScale, 4.f, gridPx * 0.9f);
-                    sf::Vector2f tip = pPx + dir * lenPx;
-                    // color by sign of dot with +x (or just white); using magnitude tint
-                    sf::Uint8 c = static_cast<sf::Uint8>(std::min(255.f, 40.f + 215.f * std::min(1.f, Emag * 1e-3f)));
-                    drawArrow(pPx, tip, sf::Color(c, c, 255));
+                    samples.push_back({pPx, E, Emag});
                 }
+            }
+
+            // Build magnitudes array and pick 95th percentile as reference (robust to outliers).
+            std::vector<float> mags; mags.reserve(samples.size());
+            for (const auto &s : samples) mags.push_back(s.Emag);
+            std::sort(mags.begin(), mags.end());
+            float ref = 1e-12f;
+            if (!mags.empty()) {
+                int idx95 = std::min<int>((int)mags.size()-1, std::max<int>(0, (int)std::floor(0.95f * (float)mags.size())));
+                ref = std::max(1e-12f, mags[idx95]);
+            }
+
+            // Allow values above ref to show (but saturate visual mapping at e.g. 10× ref)
+            const float overClamp = 10.f;
+            const float denom = std::log10(1.0f + 9.0f * overClamp); // for normalization of log-mapping
+
+            for (const auto& s : samples) {
+                const sf::Vector2f& pPx = s.pPx;
+                float Emag = s.Emag;
+
+                if (Emag < 1e-12f) {
+                    // neutral dot
+                    sf::CircleShape dot(1.5f);
+                    dot.setOrigin(1.5f, 1.5f);
+                    dot.setPosition(pPx);
+                    dot.setFillColor(sf::Color(70,70,110,200));
+                    window.draw(dot);
+                    continue;
+                }
+
+                sf::Vector2f dir = s.E / Emag;
+
+                // normalized against the robust reference, allow some headroom, then log-map
+                float norm = Emag / ref;
+                norm = std::min(norm, overClamp);
+                float scaled = std::log10(1.0f + 9.0f * norm) / denom; // now in [0,1]
+
+                float lenPx = arrowVisualMin + (arrowVisualMax - arrowVisualMin) * scaled;
+                sf::Vector2f tip = pPx + dir * lenPx;
+
+                // subtle color/alpha by magnitude (alpha scaled)
+                sf::Uint8 alpha = static_cast<sf::Uint8>(60 + 195.f * scaled);
+                drawArrow(pPx, tip, sf::Color(180, 180, 235, alpha));
             }
         }
 
