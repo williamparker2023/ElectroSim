@@ -16,94 +16,75 @@ void Simulator::clear() { particles_.clear(); }
 
 void Simulator::addParticle(const Particle& p) { particles_.push_back(p); }
 
-// O(N^2) Coulomb forces with softening; no particle collisions.
-void Simulator::computeForcesNaive(std::vector<sf::Vector2f>& acc) const {
+
+void Simulator::computeElectricField(std::vector<sf::Vector2f>& Eout) const {
     const size_t n = particles_.size();
-    std::fill(acc.begin(), acc.end(), sf::Vector2f{0.f, 0.f});
+    Eout.assign(n, P.externalE); // start with uniform external field
 
-    if (!electroOn_ || n==0) return;
+    if (!electroOn_ || n == 0) return;
 
-    // External uniform E-field: a_i += (q_i/m_i) * E
-    if (electroOn_) {
-        const sf::Vector2f E = P.externalE;
-        if (E.x != 0.f || E.y != 0.f) {
-            for (size_t i = 0; i < n; ++i) {
-                const float qm = particles_[i].charge / particles_[i].mass; // q/m
-                acc[i].x += qm * E.x;
-                acc[i].y += qm * E.y;
-            }
-        }
-    }
-
-    if (electroOn_) {
-        const float Bz = P.externalBz;
-        if (Bz != 0.f) {
-            for (size_t i = 0; i < n; ++i) {
-                const float qm = particles_[i].charge / particles_[i].mass; // q/m
-                const float vx = particles_[i].vel.x;
-                const float vy = particles_[i].vel.y;
-                acc[i].x += qm * (  vy * Bz);
-                acc[i].y += qm * ( -vx * Bz);
-            }
-        }
-    }
-
-    for (size_t i=0; i<n; ++i){
-        for(size_t j=i+1; j<n; ++j){
+    const float k = P.k;
+    // symmetric O(N^2) pair contributions
+    for (size_t i = 0; i < n; ++i) {
+        for (size_t j = i + 1; j < n; ++j) {
             const auto rij = particles_[i].pos - particles_[j].pos; // meters
-            float r2 = rij.x*rij.x + rij.y*rij.y + P.softening2;    // m^2 + ε^2
+            float r2 = rij.x*rij.x + rij.y*rij.y + P.softening2;
             float invR  = 1.0f / std::sqrt(r2);
             float invR3 = invR * invR * invR;
-            
-            // Coulomb force magnitude scaled into vector form (N/m * m = N)
-            const float s = P.k * (particles_[i].charge * particles_[j].charge) * invR3;
-            sf::Vector2f f = { s * rij.x, s * rij.y }; // Newtons
 
-            // Accelerations (m/s^2)
-            sf::Vector2f ai = { f.x / particles_[i].mass, f.y / particles_[i].mass };
-            sf::Vector2f aj = { -f.x / particles_[j].mass, -f.y / particles_[j].mass };
+            // E contribution from particle j at i: k * q_j * (r_i - r_j) / |r|^3
+            sf::Vector2f Ej = { k * particles_[j].charge * rij.x * invR3,
+                                k * particles_[j].charge * rij.y * invR3 };
+            // E contribution from particle i at j is opposite direction with q_i
+            sf::Vector2f Ei = { -k * particles_[i].charge * rij.x * invR3,
+                                -k * particles_[i].charge * rij.y * invR3 };
 
-            acc[i] += ai;
-            acc[j] += aj;
+            Eout[i] += Ej;
+            Eout[j] += Ei;
         }
     }
-    for (auto& a : acc) a = clampMag(a, P.maxAccel); // numerical safety
 }
 
-// Symplectic Euler: v_{t+dt} = v_t + a_t dt ; x_{t+dt} = x_t + v_{t+dt} dt
-void Simulator::integrateSymplecticEuler(float dt, std::vector<sf::Vector2f>& acc) {
+
+void Simulator::integrateBoris(float dt, const std::vector<sf::Vector2f>& Efield) {
+    const float Bz = P.externalBz;
     const size_t n = particles_.size();
     for (size_t i = 0; i < n; ++i) {
-        particles_[i].vel += acc[i] * dt;            // m/s
-        particles_[i].pos += particles_[i].vel * dt; // m
-    }
-}
+        Particle &p = particles_[i];
+        double q = (double)p.charge;
+        double m = (double)p.mass;
+        double dt2 = 0.5 * (double)dt;
 
-// Reflect from rectangular bounds (meters)
-void Simulator::applyBounds() {
-    for (auto& p : particles_) {
-        // Left/Right
-        if (p.pos.x < p.radius) {
-            p.pos.x = p.radius;
-            p.vel.x = -p.vel.x * P.restitution;
-        } else if (p.pos.x > P.boundsW - p.radius) {
-            p.pos.x = P.boundsW - p.radius;
-            p.vel.x = -p.vel.x * P.restitution;
-        }
-        // Top/Bottom
-        if (p.pos.y < p.radius) {
-            p.pos.y = p.radius;
-            p.vel.y = -p.vel.y * P.restitution;
-        } else if (p.pos.y > P.boundsH - p.radius) {
-            p.pos.y = P.boundsH - p.radius;
-            p.vel.y = -p.vel.y * P.restitution;
-        }
+        // E half-kick
+        double vx = p.vel.x + (q/m) * (double)Efield[i].x * dt2;
+        double vy = p.vel.y + (q/m) * (double)Efield[i].y * dt2;
+
+        // Magnetic rotation (B only z)
+        double tz = (q/m) * (double)Bz * dt2;
+        // rotate velocity (standard 2D Boris algebra)
+        double vpx = vx +  vy * tz;
+        double vpy = vy -  vx * tz;
+        double s = 2.0 * tz / (1.0 + tz*tz);
+        double vfx = vx +  vpy * s;
+        double vfy = vy -  vpx * s;
+
+        // E half-kick
+        vfx += (q/m) * (double)Efield[i].x * dt2;
+        vfy += (q/m) * (double)Efield[i].y * dt2;
+
+        // commit (convert back to float)
+        p.vel.x = (float)vfx;
+        p.vel.y = (float)vfy;
+
+        // position update
+        p.pos.x += p.vel.x * dt;
+        p.pos.y += p.vel.y * dt;
     }
 }
 
 void Simulator::step(float dt) {
-    std::vector<sf::Vector2f> acc(particles_.size());
-    computeForcesNaive(acc);
-    integrateSymplecticEuler(dt, acc);
+    std::vector<sf::Vector2f> Efield(particles_.size());
+    computeElectricField(Efield);
+    integrateBoris(dt, Efield);
     if (boundsOn_) applyBounds();
 }

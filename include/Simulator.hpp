@@ -66,9 +66,9 @@ private:
     bool electroOn_ = true;
 
     // Internals — no collision handling between particles, only forces.
-    void computeForcesNaive(std::vector<sf::Vector2f>& acc) const; // O(N^2)
-    void integrateSymplecticEuler(float dt, std::vector<sf::Vector2f>& acc);
+    void computeElectricField(std::vector<sf::Vector2f>& Eout) const; // O(N^2)   
     void applyBounds(); // bouncy walls only
+    void integrateBoris(float dt, const std::vector<sf::Vector2f>& Efield);
 
 
     bool boundsOn_ = false; // default OFF
