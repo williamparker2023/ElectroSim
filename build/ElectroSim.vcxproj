@@ -396,6 +396,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="D:\Electro\ElectroSim\src\Presets.cpp" />
     <ClCompile Include="D:\Electro\ElectroSim\src\Simulator.cpp" />
     <ClCompile Include="D:\Electro\ElectroSim\src\main.cpp" />
   </ItemGroup>

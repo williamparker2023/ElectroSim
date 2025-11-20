@@ -30,6 +30,10 @@ public:
 
         sf::Vector2f externalE{0.f, 0.f}; // NEW: uniform external E-field (V/m = N/C)
         float externalBz = 0.f; 
+        // Stabilization / confinement (visual, tunable). Defaults = 0 so Sandbox is unaffected.
+        float damping = 0.0f;             // s^-1 viscous damping (0 = off)
+        float trapK  = 0.0f;              // N/m harmonic trap strength (0 = off)
+        sf::Vector2f trapCenter{0.f, 0.f}; // meters
     };
 
     explicit Simulator(const Params& p);

@@ -5,6 +5,7 @@ cmake_policy(SET CMP0009 NEW)
 # ELECTROSIM_SOURCES at CMakeLists.txt:30 (file)
 file(GLOB_RECURSE NEW_GLOB LIST_DIRECTORIES false "D:/Electro/ElectroSim/src/*.cpp")
 set(OLD_GLOB
+  "D:/Electro/ElectroSim/src/Presets.cpp"
   "D:/Electro/ElectroSim/src/Simulator.cpp"
   "D:/Electro/ElectroSim/src/main.cpp"
   )

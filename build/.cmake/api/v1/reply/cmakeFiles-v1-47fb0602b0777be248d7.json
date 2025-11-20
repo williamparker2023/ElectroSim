@@ -5,6 +5,7 @@
 			"expression" : "D:/Electro/ElectroSim/src/*.cpp",
 			"paths" : 
 			[
+				"D:/Electro/ElectroSim/src/Presets.cpp",
 				"D:/Electro/ElectroSim/src/Simulator.cpp",
 				"D:/Electro/ElectroSim/src/main.cpp"
 			],

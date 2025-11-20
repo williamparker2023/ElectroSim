@@ -17,6 +17,28 @@ void Simulator::clear() { particles_.clear(); }
 void Simulator::addParticle(const Particle& p) { particles_.push_back(p); }
 
 
+// Reflect from rectangular bounds (meters)
+void Simulator::applyBounds() {
+    for (auto& p : particles_) {
+        // Left/Right
+        if (p.pos.x < p.radius) {
+            p.pos.x = p.radius;
+            p.vel.x = -p.vel.x * P.restitution;
+        } else if (p.pos.x > P.boundsW - p.radius) {
+            p.pos.x = P.boundsW - p.radius;
+            p.vel.x = -p.vel.x * P.restitution;
+        }
+        // Top/Bottom
+        if (p.pos.y < p.radius) {
+            p.pos.y = p.radius;
+            p.vel.y = -p.vel.y * P.restitution;
+        } else if (p.pos.y > P.boundsH - p.radius) {
+            p.pos.y = P.boundsH - p.radius;
+            p.vel.y = -p.vel.y * P.restitution;
+        }
+    }
+}   
+
 void Simulator::computeElectricField(std::vector<sf::Vector2f>& Eout) const {
     const size_t n = particles_.size();
     Eout.assign(n, P.externalE); // start with uniform external field

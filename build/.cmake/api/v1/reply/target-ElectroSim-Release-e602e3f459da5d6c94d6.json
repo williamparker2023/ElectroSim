@@ -2,10 +2,10 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "bin/MinSizeRel/ElectroSim.exe"
+			"path" : "bin/Release/ElectroSim.exe"
 		},
 		{
-			"path" : "bin/MinSizeRel/ElectroSim.pdb"
+			"path" : "bin/Release/ElectroSim.pdb"
 		}
 	],
 	"backtrace" : 1,
@@ -65,7 +65,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "/DWIN32 /D_WINDOWS /EHsc /O1 /Ob1 /DNDEBUG -std:c++20 -MD"
+					"fragment" : "/DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -std:c++20 -MD"
 				},
 				{
 					"backtrace" : 3,
@@ -104,7 +104,8 @@
 			"sourceIndexes" : 
 			[
 				0,
-				1
+				1,
+				2
 			]
 		}
 	],
@@ -120,7 +121,7 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "/DWIN32 /D_WINDOWS /EHsc /O1 /Ob1 /DNDEBUG -MD",
+				"fragment" : "/DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -MD",
 				"role" : "flags"
 			},
 			{
@@ -129,17 +130,17 @@
 			},
 			{
 				"backtrace" : 2,
-				"fragment" : "D:\\SFML-2.6.2-windows-vc17-64-bit\\SFML-2.6.2\\lib\\sfml-graphics-d.lib",
+				"fragment" : "D:\\SFML-2.6.2-windows-vc17-64-bit\\SFML-2.6.2\\lib\\sfml-graphics.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 2,
-				"fragment" : "D:\\SFML-2.6.2-windows-vc17-64-bit\\SFML-2.6.2\\lib\\sfml-window-d.lib",
+				"fragment" : "D:\\SFML-2.6.2-windows-vc17-64-bit\\SFML-2.6.2\\lib\\sfml-window.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 2,
-				"fragment" : "D:\\SFML-2.6.2-windows-vc17-64-bit\\SFML-2.6.2\\lib\\sfml-system-d.lib",
+				"fragment" : "D:\\SFML-2.6.2-windows-vc17-64-bit\\SFML-2.6.2\\lib\\sfml-system.lib",
 				"role" : "libraries"
 			},
 			{
@@ -163,12 +164,19 @@
 			"sourceIndexes" : 
 			[
 				0,
-				1
+				1,
+				2
 			]
 		}
 	],
 	"sources" : 
 	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/Presets.cpp",
+			"sourceGroupIndex" : 0
+		},
 		{
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,

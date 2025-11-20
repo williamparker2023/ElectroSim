@@ -1,13 +1,27 @@
 #include <SFML/Graphics.hpp>
 #include "Simulator.hpp"
 #include "Particle.hpp"
+#include "Presets.hpp"
 #include <iostream>
 #include <cmath>
 #include <vector>
-enum class Mode { Custom, ElectronGun };
+#include <chrono>
+#include <random>
+#include <string>
+enum class Mode { Sandbox, NeutralPlasma };
 
 //add magnetic field
-int main() {
+int main(int argc, char** argv) {
+    // --- optional CLI bench mode ---
+    bool benchMode = false;
+    int benchN = 5000;
+    int benchSteps = 200;
+    if (argc > 1 && std::string(argv[1]) == "--bench") {
+        benchMode = true;
+        if (argc > 2) benchN = std::max(0, std::stoi(argv[2]));
+        if (argc > 3) benchSteps = std::max(0, std::stoi(argv[3]));
+    }
+
     // -------------------------------
     // Window + render scale
     // -------------------------------
@@ -35,9 +49,41 @@ int main() {
     prm.boundsW     = W / ppm;             // meters
     prm.boundsH     = H / ppm;             // meters
     prm.k           = 8.9875517923e9f;     // Coulomb constant (N·m^2/C^2)
-    prm.softening2  = (0.05f * 0.05f);               // (0.01 m)^2
+    prm.softening2  = (0.05f * 0.05f);     // (0.01 m)^2
     prm.restitution = 0.9f;                // mirror walls
     prm.maxAccel    = 1.0e4f;              // m/s^2 clamp for safety
+    // default trap center = world center (can remain 0,0 if trapK == 0)
+    prm.trapCenter = { prm.boundsW * 0.5f, prm.boundsH * 0.5f };
+
+    if (benchMode) {
+        // --------------- BENCHMARK MODE ---------------
+        Simulator sim(prm);
+        // populate N random particles
+        std::mt19937 rng(12345);
+        std::uniform_real_distribution<float> ux(0.f, prm.boundsW);
+        std::uniform_real_distribution<float> uy(0.f, prm.boundsH);
+        std::uniform_real_distribution<float> uq(-1e-6f, 1e-6f);
+        std::uniform_real_distribution<float> umass(1e-4f, 1e-2f);
+        for (int i = 0; i < benchN; ++i) {
+            Particle p;
+            p.pos = { ux(rng), uy(rng) };
+            p.vel = { 0.f, 0.f };
+            p.charge = uq(rng);
+            p.mass = umass(rng);
+            sim.addParticle(p);
+        }
+        // Run benchmark
+        auto start = std::chrono::high_resolution_clock::now();
+        const float dt = 0.016f; // 16 ms ~ 60 FPS
+        for (int step = 0; step < benchSteps; ++step) {
+            sim.step(dt);
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - start;
+        std::cout << "Benchmark completed: " << benchN << " particles, "
+                  << benchSteps << " steps in " << elapsed.count() << " seconds.\n";
+        return 0;
+    }
 
 
     Simulator sim(prm);
@@ -45,11 +91,29 @@ int main() {
     sim.setElectrostaticsEnabled(true);
 
     bool paused = true;
+    // Current UI mode (Sandbox default)
+    Mode currentMode = Mode::Sandbox;
+
+    struct Spawner {
+        PlasmaConfig cfg;
+        std::size_t spawned = 0;
+        std::size_t batchSize = 512; // tune: 256..2048
+        bool active = false;
+    } spawner;
+
+    // sensible default for plasma
+    spawner.cfg.N = 512;
+    spawner.cfg.radius = 1.0f; // meters
+    spawner.cfg.qMag = 1e-7f;
+    spawner.cfg.mass = 1e-5f;
+    spawner.cfg.particleRadius = 0.002f;
+    spawner.cfg.thermalVsigma = 0.05f;
+    spawner.cfg.seed = 1111;
     
 
     float qMag   = 1e-6f;   // Coulombs
     float mass   = 1e-3f;   // kg
-    float radius = 0.02f;   // m
+    float radius = 0.01f;   // m
 
     // --- UI state for inputs (SI units) ---
     float uiCharge = 8e-7f;   // Coulombs
@@ -75,6 +139,7 @@ int main() {
     auto minusRect = [&](const sf::FloatRect& r){ return sf::FloatRect(r.left, r.top, 32.f, r.height); };
     auto plusRect  = [&](const sf::FloatRect& r){ return sf::FloatRect(r.left + r.width - 32.f, r.top, 32.f, r.height); };
     auto valueRect = [&](const sf::FloatRect& r){ return sf::FloatRect(r.left + 36.f, r.top, r.width - 72.f, r.height); };
+    auto spawnRect = [&](){ return sf::FloatRect(12.f + 90.f + 90.f + 160.f, 52.f, 120.f, 28.f); };
 
     auto makeRect = [](const sf::FloatRect& r, sf::Color fill){
         sf::RectangleShape s; s.setPosition({r.left, r.top}); s.setSize({r.width, r.height});
@@ -85,6 +150,7 @@ int main() {
     auto resetRect = [&](){
         return sf::FloatRect(12.f, 52.f, 80.f, 28.f); // x, y, w, h
     };
+    auto sandboxRect = [&](){ return sf::FloatRect(12.f + 90.f, 52.f, 120.f, 28.f); };
 
     auto drawButton = [&](const sf::FloatRect& r, const char* text, bool enabled){
         sf::RectangleShape box({r.width, r.height});
@@ -234,12 +300,62 @@ int main() {
             auto contains = [](const sf::FloatRect& r, sf::Vector2f p){ return r.contains(p); };
             //buttons
             if (e.type == sf::Event::MouseButtonPressed) {
-                sf::Vector2f mousePx = (sf::Vector2f)sf::Mouse::getPosition(window);
-                bool uiConsumed = false;
+                // use window.mapPixelToCoords so UI hit-tests align with rendered coordinates/view
+                sf::Vector2f mousePx = window.mapPixelToCoords({ e.mouseButton.x, e.mouseButton.y });                bool uiConsumed = false;
 
                 // Reset button: only active when paused
                 if (resetRect().contains(mousePx)) {
                     if (paused) sim.clear();
+                    uiConsumed = true;
+                }
+
+                // Spawn button: toggles chunked population (handled independently)
+                if (spawnRect().contains(mousePx)) {
+                    if (currentMode == Mode::NeutralPlasma) {
+                        // toggle spawn; start with spawned=0 when starting a new populate
+                        if (!spawner.active) {
+                            spawner.spawned = 0;
+                            spawner.active = true;
+                            paused = true; // keep paused while populating
+                            // enable stabilizers for plasma view
+                            sim.params().damping   = 0.8f;   // tune as desired
+                            sim.params().trapK    = 2.0f;
+                            sim.params().trapCenter = { sim.params().boundsW * 0.5f, sim.params().boundsH * 0.5f };
+                        } else {
+                            // cancel
+                            spawner.active = false;
+                            spawner.spawned = 0;
+                            // restore to sandbox defaults (turn off)
+                            sim.params().damping = 0.0f;
+                            sim.params().trapK  = 0.0f;
+                        }
+                    } else {
+                        // If not in plasma mode, switch to it and start spawning immediately
+                        currentMode = Mode::NeutralPlasma;
+                        sim.clear();
+                        spawner.spawned = 0;
+                        spawner.active = true;
+                        paused = true;
+                        // enable stabilizers when entering plasma mode
+                        sim.params().damping   = 0.8f;
+                        sim.params().trapK    = 2.0f;
+                        sim.params().trapCenter = { sim.params().boundsW * 0.5f, sim.params().boundsH * 0.5f };
+                    }
+                    uiConsumed = true;
+                }
+
+
+                // Mode buttons: Sandbox and Neutral Plasma
+                if (sandboxRect().contains(mousePx)) {
+                    if (currentMode != Mode::Sandbox) {
+                        currentMode = Mode::Sandbox;
+                        sim.clear();          // reset to empty sandbox when switching
+                        paused = true;        // let user configure before running
+                        // enable stabilizers when entering plasma mode
+                        sim.params().damping   = 0.8f;
+                        sim.params().trapK    = 2.0f;
+                        sim.params().trapCenter = { sim.params().boundsW * 0.5f, sim.params().boundsH * 0.5f };
+                    }
                     uiConsumed = true;
                 }
                 // E-field toggle button
@@ -335,7 +451,8 @@ int main() {
 
             // Click to spawn: Left = +q, Right = -q
             if (e.type == sf::Event::MouseButtonPressed && paused) {
-                sf::Vector2f mousePx = sf::Vector2f(sf::Mouse::getPosition(window));
+                // use same mapPixelToCoords here so spawning position matches UI coords
+                sf::Vector2f mousePx = window.mapPixelToCoords({ e.mouseButton.x, e.mouseButton.y });
                 sf::Vector2f mouseM  = mousePx / ppm; // px -> meters
 
                 float q = (e.mouseButton.button == sf::Mouse::Left) ? +uiCharge : -uiCharge;
@@ -371,21 +488,22 @@ int main() {
             if (steps == maxSteps) accTime = 0.0f;
         }
 
+        if (spawner.active) {
+            // ensure sim cleared and paused before spawning (mode switch should already clear)
+            paused = true;
+            std::size_t added = spawnNeutralPlasmaBatch(sim, spawner.cfg, spawner.spawned, spawner.batchSize);
+            spawner.spawned += added;
+            if (spawner.spawned >= spawner.cfg.N || added == 0) {
+                // finished
+                spawner.active = false;
+                // leave sim paused for user inspection; unpause if you prefer:
+                // paused = false;
+            }
+        }
+
 
         // ---- draw ----
         window.clear(sf::Color::Black);
-
-        for (const auto& p : sim.particles()) {
-            // meters -> pixels
-            sf::Vector2f posPx = p.pos * ppm;
-            float rPx = std::max(2.0f, p.radius * ppm); // ensure visible
-
-            sf::CircleShape shape(rPx);
-            shape.setOrigin(rPx, rPx);
-            shape.setPosition(posPx);
-            shape.setFillColor(p.color);
-            window.draw(shape);
-        }
 
         // Draw E-field sample grid arrows (pixels)
         if (showEField) {
@@ -408,6 +526,10 @@ int main() {
 
                     // start with external uniform E-field
                     sf::Vector2f E = sim.params().externalE;
+                    // Stabilization / confinement (visual, tunable)
+                    float damping = 0.0f;            // s^-1 viscous damping (0 = off)
+                    float trapK  = 0.0f;             // N/m harmonic trap strength (0 = off)
+                    sf::Vector2f trapCenter{0.f, 0.f}; // meters
 
                     // sum contributions from particles
                     for (const auto& part : sim.particles()) {
@@ -467,6 +589,18 @@ int main() {
             }
         }
 
+        for (const auto& p : sim.particles()) {
+            // meters -> pixels
+            sf::Vector2f posPx = p.pos * ppm;
+            float rPx = std::max(2.0f, p.radius * ppm); // ensure visible
+
+            sf::CircleShape shape(rPx);
+            shape.setOrigin(rPx, rPx);
+            shape.setPosition(posPx);
+            shape.setFillColor(p.color);
+            window.draw(shape);
+        }
+
         //tiny cursor dot so you can see where you click
         sf::CircleShape cursor(3.0f);
         cursor.setOrigin(3.0f, 3.0f);
@@ -477,6 +611,17 @@ int main() {
         if (uiFont.getInfo().family != "") { // loaded ok
             drawButton(resetRect(), "Reset", paused);
             drawButton(eFieldRect(), "E Field", showEField);
+            drawButton(sandboxRect(), "Sandbox", currentMode == Mode::Sandbox);
+            drawButton(spawnRect(), spawner.active ? "Cancel Spawn" : "Populate", spawner.active);
+
+            // progress text
+            if (currentMode == Mode::NeutralPlasma) {
+                std::string prog = std::to_string(spawner.spawned) + " / " + std::to_string(spawner.cfg.N);
+                sf::Text t(prog, uiFont, 12);
+                t.setFillColor(sf::Color::White);
+                t.setPosition(12.f, 84.f);
+                window.draw(t);
+            }
 
             auto fmt = [](float v) {
                 char buf[64];
