@@ -8,6 +8,7 @@
 #include <chrono>
 #include <random>
 #include <string>
+#include <algorithm>
 enum class Mode { Sandbox, NeutralPlasma };
 
 //add magnetic field
@@ -49,9 +50,11 @@ int main(int argc, char** argv) {
     prm.boundsW     = W / ppm;             // meters
     prm.boundsH     = H / ppm;             // meters
     prm.k           = 8.9875517923e9f;     // Coulomb constant (N·m^2/C^2)
-    prm.softening2  = (0.05f * 0.05f);     // (0.01 m)^2
+    // larger softening reduces near-singular pair forces
+    prm.softening2  = (0.03f * 0.03f);     // meters^2
     prm.restitution = 0.9f;                // mirror walls
-    prm.maxAccel    = 1.0e4f;              // m/s^2 clamp for safety
+    // tighter accel clamp to avoid brief huge kicks
+    prm.maxAccel    = 1.0e3f;              // m/s^2 clamp for safety
     // default trap center = world center (can remain 0,0 if trapK == 0)
     prm.trapCenter = { prm.boundsW * 0.5f, prm.boundsH * 0.5f };
 
@@ -102,12 +105,15 @@ int main(int argc, char** argv) {
     } spawner;
 
     // sensible default for plasma
-    spawner.cfg.N = 512;
+    spawner.cfg.N = 512; // total particles
     spawner.cfg.radius = 1.0f; // meters
-    spawner.cfg.qMag = 1e-7f;
-    spawner.cfg.mass = 1e-5f;
+    // more conservative / stable defaults
+    spawner.cfg.qMag = 1e-8f;           // lower charge per macro
+    spawner.cfg.mass = 1e-4f;           // larger macroparticle mass
     spawner.cfg.particleRadius = 0.002f;
-    spawner.cfg.thermalVsigma = 0.05f;
+    spawner.cfg.thermalVsigma = 0.01f;  // less thermal agitation
+    // increase omega ~50% for ~50% faster natural motion (tuned together with damping)
+    spawner.cfg.omega = 0.6f;           // small coherent rotation (rad/s)
     spawner.cfg.seed = 1111;
     
 
@@ -317,10 +323,14 @@ int main(int argc, char** argv) {
                             spawner.spawned = 0;
                             spawner.active = true;
                             paused = true; // keep paused while populating
-                            // enable stabilizers for plasma view
-                            sim.params().damping   = 0.8f;   // tune as desired
-                            sim.params().trapK    = 2.0f;
+                            // enable stabilizers for plasma view using physics-based defaults
+                            // choose trapK so natural freq ~ cfg.omega (trapK = m * omega^2)
+                            float omega = spawner.cfg.omega;
+                            float mpart = spawner.cfg.mass;
                             sim.params().trapCenter = { sim.params().boundsW * 0.5f, sim.params().boundsH * 0.5f };
+                            sim.params().trapK = mpart * omega * omega;
+                            // set damping to a modest value relative to omega (clamped)
+                            sim.params().damping = std::clamp(omega, 0.3f, 2.0f);
                         } else {
                             // cancel
                             spawner.active = false;
@@ -336,10 +346,12 @@ int main(int argc, char** argv) {
                         spawner.spawned = 0;
                         spawner.active = true;
                         paused = true;
-                        // enable stabilizers when entering plasma mode
-                        sim.params().damping   = 0.8f;
-                        sim.params().trapK    = 2.0f;
+                        // enable stabilizers when entering plasma mode (physics-based)
+                        float omega = spawner.cfg.omega;
+                        float mpart = spawner.cfg.mass;
                         sim.params().trapCenter = { sim.params().boundsW * 0.5f, sim.params().boundsH * 0.5f };
+                        sim.params().trapK = mpart * omega * omega;
+                        sim.params().damping = std::clamp(omega, 0.3f, 2.0f);
                     }
                     uiConsumed = true;
                 }
@@ -351,10 +363,10 @@ int main(int argc, char** argv) {
                         currentMode = Mode::Sandbox;
                         sim.clear();          // reset to empty sandbox when switching
                         paused = true;        // let user configure before running
-                        // enable stabilizers when entering plasma mode
-                        sim.params().damping   = 0.8f;
-                        sim.params().trapK    = 2.0f;
-                        sim.params().trapCenter = { sim.params().boundsW * 0.5f, sim.params().boundsH * 0.5f };
+                        // turn OFF plasma stabilizers for Sandbox
+                        sim.params().damping = 0.0f;
+                        sim.params().trapK  = 0.0f;
+                        // (leave trapCenter as-is)
                     }
                     uiConsumed = true;
                 }
